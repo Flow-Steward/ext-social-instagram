@@ -244,10 +244,104 @@ def test_readiness_timeout_retains_created_container_for_explicit_resume(graph):
     graph.reply(200, {"id": CONTAINER})
     graph.fail(TimeoutError("Read timed out"))
     response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Once"}))
+    assert response["ok"] is True, response
     assert response["result"]["container_id"] == CONTAINER
     assert response["result"]["status"] == "pending"
+    update = response["project_state_updates"][0]
+    assert update["namespace"] == "publishing" and update["state_key"] == "containers"
+    receipt = update["value_jsonb"]["containers"][CONTAINER]
+    assert receipt["container_id"] == CONTAINER
+    assert receipt["ig_user_id"] == ACCOUNT
+    assert receipt["connection_id"] == "connection-account-a"
     assert response.get("definitely_no_external_effect") is not True
     assert len(graph.requests) == 2
+
+
+@pytest.mark.parametrize("operation", ["publish_image", "publish_carousel"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "timeout",
+        "http200_array_code",
+        "http503_map_code",
+        "post_send_value_error",
+        "post_send_type_error",
+        "post_send_key_error",
+    ],
+)
+def test_new_parent_finalization_ambiguity_returns_handled_pending_receipt(
+    graph, operation, failure
+):
+    if operation == "publish_carousel":
+        graph.reply(200, {"id": "90001"})
+        graph.reply(200, {"id": "90002"})
+        values = {"image_urls": [IMAGE, IMAGE], "caption": "Once"}
+    else:
+        values = {"image_url": IMAGE, "caption": "Once"}
+    graph.reply(200, {"id": CONTAINER})
+    graph.ready()
+    if failure == "timeout":
+        graph.fail(TimeoutError("Publish may have succeeded " + TOKEN))
+    elif failure == "http200_array_code":
+        graph.reply(200, {"error": {"code": [190], "message": TOKEN}})
+    elif failure == "http503_map_code":
+        graph.reply(503, {"error": {"code": {"unexpected": 2}, "message": TOKEN}})
+    else:
+        exception = {
+            "post_send_value_error": ValueError,
+            "post_send_type_error": TypeError,
+            "post_send_key_error": KeyError,
+        }[failure]
+        graph.fail(exception("Processing failed after send " + TOKEN))
+    request = with_receipt(action(operation, values))
+    del request["action"]["target"]["project_state"]["items"][0]["value"]["containers"][CONTAINER]
+    response = invoke(request)
+    # Failed invocation envelopes bypass host receipt processing. Handled pending
+    # persists recovery state; explicit unknown metadata prevents a success claim.
+    assert response["ok"] is True, response
+    assert response["result"]["status"] == "pending"
+    assert response["result"]["container_id"] == CONTAINER
+    assert not response["result"].get("media_id")
+    assert response["external_effect_status"] == "timeout_unknown"
+    assert response.get("definitely_no_external_effect") is not True
+    update = response["project_state_updates"][0]
+    assert update["namespace"] == "publishing" and update["state_key"] == "containers"
+    assert update["expected_revision"] == 7
+    assert update.get("connection_id", "connection-account-a") == "connection-account-a"
+    receipt = update["value_jsonb"]["containers"][CONTAINER]
+    assert receipt["container_id"] == CONTAINER
+    assert receipt["ig_user_id"] == ACCOUNT
+    assert receipt["connection_id"] == "connection-account-a"
+    assert update["value_jsonb"]["containers"]["80008"]["status"] == "pending"
+    assert graph.requests[-1]["url"].endswith(f"/{ACCOUNT}/media_publish")
+    assert sum(row["url"].endswith("/media_publish") for row in graph.requests) == 1
+    assert len(graph.requests) == (5 if operation == "publish_carousel" else 3)
+    assert TOKEN not in json.dumps(response)
+
+
+@pytest.mark.parametrize("status", [200, 503])
+@pytest.mark.parametrize("code", [[190], {"unexpected": 2}])
+def test_malformed_error_after_container_create_send_is_unknown_not_no_effect(graph, status, code):
+    graph.reply(status, {"error": {"code": code, "message": "Untrusted " + TOKEN}})
+    response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Once"}))
+    assert response["ok"] is False
+    assert response["external_effect_status"] == "timeout_unknown"
+    assert response.get("definitely_no_external_effect") is not True
+    assert len(graph.requests) == 1
+    assert TOKEN not in json.dumps(response)
+
+
+@pytest.mark.parametrize("exception", [ValueError, TypeError, KeyError])
+def test_processing_exception_after_container_create_send_is_unknown_not_no_effect(
+    graph, exception
+):
+    graph.fail(exception("Post-send processing " + TOKEN))
+    response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Once"}))
+    assert response["ok"] is False
+    assert response["external_effect_status"] == "timeout_unknown"
+    assert response.get("definitely_no_external_effect") is not True
+    assert len(graph.requests) == 1
+    assert TOKEN not in json.dumps(response)
 
 
 def test_timeout_finalizing_container_is_unknown_with_id_retained_for_read_first_recovery(graph):

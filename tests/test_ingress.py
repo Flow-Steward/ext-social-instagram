@@ -81,6 +81,25 @@ def test_other_allowed_account_author_is_also_own_account_and_is_ignored():
     )
 
 
+def test_anchor_author_is_ignored_when_only_another_account_is_allowed(graph):
+    body = delivery([comment_change(**{"from": {"id": ACCOUNT}})], account=OTHER_ACCOUNT)
+    assert events(ingress(body, webhook_account_ids=[OTHER_ACCOUNT])) == []
+    assert graph.requests == []
+
+
+def test_other_account_only_allowlist_accepts_foreign_author_under_original_anchor(graph):
+    emitted = events(ingress(delivery(account=OTHER_ACCOUNT), webhook_account_ids=[OTHER_ACCOUNT]))
+    assert len(emitted) == 1
+    event = emitted[0]
+    assert event["project_id"] == "project-a"
+    assert event["payload"]["connection_id"] == "connection-anchor"
+    assert event["payload"]["ig_user_id"] == OTHER_ACCOUNT
+    assert event["payload"]["author_id"] == "60006"
+    assert graph.requests == []
+    # The anchor remains an own author, never an implicitly allowed intake account.
+    assert events(ingress(delivery(), webhook_account_ids=[OTHER_ACCOUNT])) == []
+
+
 def test_foreign_account_entry_is_ignored_even_when_media_claims_same_id():
     assert events(ingress(delivery(account=OTHER_ACCOUNT))) == []
 

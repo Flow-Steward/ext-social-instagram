@@ -55,12 +55,33 @@ def test_get_post_returns_owned_media_only(graph):
 
 
 @pytest.mark.parametrize("operation", ["get_post", "list_comments"])
-def test_foreign_or_missing_media_owner_blocks_asset_access(graph, operation):
+def test_foreign_media_owner_blocks_asset_access(graph, operation):
     owned_media(graph, OTHER_ACCOUNT)
     response = invoke(action(operation, {"media_id": MEDIA}))
     assert response["ok"] is False
     assert response["error_code"] == "foreign_object"
     assert len(graph.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "operation", ["get_post", "list_comments", "list_replies", "reply_to_comment"]
+)
+def test_missing_media_owner_blocks_asset_access_and_replies(graph, operation):
+    comment_operation = operation in {"list_replies", "reply_to_comment"}
+    if comment_operation:
+        comment_parent(graph)
+    graph.reply(200, {"id": MEDIA, "username": "configured-account-name"})
+    values = (
+        {"comment_id": COMMENT, "text": "No ownership proof"}
+        if comment_operation
+        else {"media_id": MEDIA}
+    )
+    response = invoke(action(operation, values))
+    assert response["ok"] is False
+    assert response["error_code"] == "foreign_object"
+    assert [row["method"] for row in graph.requests] == ["GET"] * (2 if comment_operation else 1)
+    if operation == "reply_to_comment":
+        assert response["definitely_no_external_effect"] is True
 
 
 @pytest.mark.parametrize("operation", ["list_replies", "reply_to_comment"])
