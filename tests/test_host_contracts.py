@@ -279,11 +279,18 @@ def confirm(host, monkeypatch, response, invocation=None):
     return confirmed, writes[0]
 
 
-@pytest.mark.parametrize("outcome", ["ambiguous", "succeeded", "rejected"])
+@pytest.mark.parametrize(
+    "outcome", ["ambiguous", "succeeded", "rejected", "http408_code1", "http408_code4"]
+)
 def test_actual_effect_confirmation_consumes_instagram_runtime_metadata(
     host, graph, monkeypatch, outcome
 ):
-    if outcome == "ambiguous":
+    if outcome in {"http408_code1", "http408_code4"}:
+        # FS conservatively preserves timed-out writes, even with a Graph error body.
+        code = 1 if outcome == "http408_code1" else 4
+        graph.reply(408, {"error": {"code": code}})
+        expected = "timeout_unknown"
+    elif outcome == "ambiguous":
         graph.fail(TimeoutError("unknown create"))
         expected = "timeout_unknown"
     elif outcome == "succeeded":
@@ -297,6 +304,15 @@ def test_actual_effect_confirmation_consumes_instagram_runtime_metadata(
     response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Once"}))
     confirmed, write = confirm(host, monkeypatch, response)
     assert confirmed["status"] == write["status"] == expected
+    if outcome in {"http408_code1", "http408_code4"}:
+        assert response["external_effect_status"] == "timeout_unknown"
+        assert "definitely_no_external_effect" not in response
+        assert len(graph.requests) == 1
+        assert graph.requests[0]["method"] == "POST"
+        assert confirmed["operation_id"] == "publish_image"
+        assert confirmed["account_id"] == "account-a"
+        assert confirmed["project_id"] == "project-a"
+        assert confirmed["connection_id"] == "connection-account-a"
     if outcome == "succeeded":
         assert write["external_object_id"] == MEDIA
         assert confirmed["__confirmed_replay_invocation"]["response"]["result"]["media_id"] == MEDIA
