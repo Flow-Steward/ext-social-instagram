@@ -104,6 +104,13 @@ def test_foreign_account_entry_is_ignored_even_when_media_claims_same_id():
     assert events(ingress(delivery(account=OTHER_ACCOUNT))) == []
 
 
+def test_signed_self_marker_is_conservatively_ignored_across_instagram_id_namespaces(graph):
+    body = delivery([comment_change(**{"from": {"id": "99887", "self_ig_scoped_id": "88776"}})])
+    assert events(ingress(body)) == []
+    assert len(events(ingress(delivery([comment_change(**{"from": {"id": "99887"}})])))) == 1
+    assert graph.requests == []
+
+
 def test_multiple_entries_and_changes_are_scoped_before_normalization():
     body = delivery([comment_change(), comment_change(id="40005")])
     body["entry"].append({"id": OTHER_ACCOUNT, "time": 1794690001, "changes": [comment_change()]})

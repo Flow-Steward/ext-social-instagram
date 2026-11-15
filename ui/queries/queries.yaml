@@ -17,6 +17,7 @@ queries:
     result_fields:
       - "result.status"
       - "result.configured"
+      - "result.webhook_configured"
       - "result.missing_fields"
     error_codes:
       - "not_configured"

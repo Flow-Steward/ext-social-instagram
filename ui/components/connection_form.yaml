@@ -15,7 +15,6 @@ data:
     - "app_secret"
   required_secret_fields:
     - "access_token"
-    - "app_secret"
 defaults:
   display_name: "Instagram"
 fields:
@@ -41,8 +40,8 @@ fields:
   -
     path: "webhook_account_ids"
     label: "Webhook account allowlist"
-    widget: "json"
-    help: "Optional JSON array of allowed account IDs. Omit for this account only; empty disables intake."
+    widget: "tag_picker"
+    help: "Optional account IDs. Leave untouched for this account only; remove all tags to disable intake."
   -
     path: "access_token"
     label: "Instagram Login user access token"
@@ -50,6 +49,6 @@ fields:
     required: true
   -
     path: "app_secret"
-    label: "Meta app secret"
+    label: "Meta app secret (receiving comments only)"
     widget: "secret"
-    required: true
+    help: "Required to receive signed comments; publishing does not require this secret."

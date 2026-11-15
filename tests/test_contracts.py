@@ -121,9 +121,12 @@ def test_artwork_is_exact_official_source_with_bundled_provenance():
     )
 
 
-def test_runtime_and_tests_do_not_import_core_or_sibling_extensions():
+def test_runtime_and_non_host_tests_do_not_import_core_or_sibling_extensions():
     forbidden = ("core", "extensions", "main_ingress", "main_send", "main_state")
     for file in ROOT.rglob("*.py"):
+        file_forbidden = forbidden
+        if file == ROOT / "tests/test_host_contracts.py":
+            file_forbidden = tuple(name for name in forbidden if name != "core")
         for node in ast.walk(ast.parse(file.read_text())):
             names = (
                 [row.name for row in node.names]
@@ -132,13 +135,31 @@ def test_runtime_and_tests_do_not_import_core_or_sibling_extensions():
                 if isinstance(node, ast.ImportFrom)
                 else []
             )
-            assert all(name.split(".")[0] not in forbidden for name in names), file
+            assert all(name.split(".")[0] not in file_forbidden for name in names), file
+
+
+def test_app_secret_is_optional_for_connection_but_remains_callback_signing_secret():
+    types = load("contracts/connection_types.yaml")["connection_types"][0]
+    assert types["secret_schema"]["required"] == ["access_token"]
+    assert load("schemas/secrets.schema.yaml")["required"] == ["access_token"]
+    form = load("ui/components/connection_form.yaml")
+    assert form["data"]["required_secret_fields"] == ["access_token"]
+    assert not next(row for row in form["fields"] if row["path"] == "app_secret").get(
+        "required", False
+    )
+    assert load("extension.yaml")["callbacks"][0]["auth"]["secret_name"] == "app_secret"
 
 
 def test_declared_resume_state_is_nonsecret_and_connection_scoped_by_host():
     declaration = load("extension.yaml")["project_state"]
-    assert declaration["reads"] == [{"namespace": "publishing", "state_key": "containers"}]
-    assert declaration["writes"] == [{"namespace": "publishing", "state_key": "containers"}]
+    assert declaration["reads"] == [
+        {
+            "namespace": "publishing",
+            "state_key_from_input": "container_id",
+            "state_key_prefix": "container:",
+        }
+    ]
+    assert declaration["writes"] == [{"namespace": "publishing", "state_key": "*"}]
 
 
 def test_image_contract_limits_match_current_media_reference():

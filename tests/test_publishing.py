@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import time
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from conftest import ACCOUNT, CONTAINER, IMAGE, MEDIA, TOKEN, action, invoke, with_receipt
+from handlers import transport
 
 
 def test_publish_image_creates_checks_readiness_publishes_and_reads_permalink(graph):
@@ -59,6 +61,58 @@ def test_caption_at_2200_is_sent_intact_without_truncation(graph):
     caption = "é" * 2200
     assert invoke(action("publish_image", {"image_url": IMAGE, "caption": caption}))["ok"] is True
     assert graph.form_body(0)["caption"] == [caption]
+
+
+def test_publishing_does_not_require_webhook_app_secret(graph):
+    request = action("publish_image", {"image_url": IMAGE, "caption": "No webhook"})
+    request["action"]["target"]["connection"]["secrets"].pop("app_secret")
+    graph.reply(200, {"id": CONTAINER})
+    graph.ready()
+    graph.published()
+    assert invoke(request)["result"]["media_id"] == MEDIA
+
+
+def test_overall_deadline_stops_carousel_without_recreating_or_finalizing(graph, monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    for index in range(20):
+        graph.reply(200, {"id": str(90000 + index)})
+
+    def delayed_exchange(*args, **kwargs):
+        assert 0 < kwargs["timeout"] <= 25 - clock[0]
+        clock[0] += min(8, kwargs["timeout"])
+        return graph(*args, **kwargs)
+
+    monkeypatch.setattr(transport, "_http_exchange", delayed_exchange)
+    response = invoke(
+        action("publish_carousel", {"image_urls": [IMAGE] * 20, "caption": "Bounded"})
+    )
+    assert clock[0] <= 25
+    assert 1 < len(graph.requests) < 20
+    assert response["result"]["child_container_ids"] == [
+        str(90000 + index) for index in range(len(graph.requests))
+    ]
+    assert response.get("definitely_no_external_effect") is not True
+    assert all(row["url"].endswith(f"/{ACCOUNT}/media") for row in graph.requests)
+
+
+def test_deadline_after_parent_creation_returns_pending_receipt_without_status_or_publish(
+    graph, monkeypatch
+):
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    graph.reply(200, {"id": CONTAINER})
+
+    def consume_budget(*args, **kwargs):
+        clock[0] = 25.0
+        return graph(*args, **kwargs)
+
+    monkeypatch.setattr(transport, "_http_exchange", consume_budget)
+    response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Later"}))
+    assert response["ok"] is True
+    assert response["result"] == {"container_id": CONTAINER, "status": "pending"}
+    assert response["project_state_updates"][0]["value_jsonb"]["container_id"] == CONTAINER
+    assert len(graph.requests) == 1
 
 
 @pytest.mark.parametrize(
@@ -136,19 +190,16 @@ def test_partial_carousel_child_refusal_returns_receipts_and_never_publishes(gra
 def test_pending_container_is_returned_and_durably_recorded_without_background_polling(graph):
     graph.reply(200, {"id": CONTAINER})
     graph.reply(200, {"id": CONTAINER, "status_code": "IN_PROGRESS"})
-    response = invoke(
-        with_receipt(action("publish_image", {"image_url": IMAGE, "caption": "Soon"}))
-    )
+    response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Soon"}))
     assert response["ok"] is True, response
     assert response["result"]["container_id"] == CONTAINER
     assert response["result"]["status"] == "pending"
     update = response["project_state_updates"][0]
-    assert update["namespace"] == "publishing" and update["state_key"] == "containers"
-    assert update["expected_revision"] == 7
+    assert update["namespace"] == "publishing" and update["state_key"] == "container:" + CONTAINER
+    assert "expected_revision" not in update
     assert update.get("connection_id", "connection-account-a") == "connection-account-a"
-    assert update["value_jsonb"]["containers"][CONTAINER]["connection_id"] == "connection-account-a"
-    assert update["value_jsonb"]["containers"][CONTAINER]["ig_user_id"] == ACCOUNT
-    assert update["value_jsonb"]["containers"]["80008"]["status"] == "pending"
+    assert update["value_jsonb"]["connection_id"] == "connection-account-a"
+    assert update["value_jsonb"]["ig_user_id"] == ACCOUNT
     assert TOKEN not in json.dumps(response)
     assert [row["method"] for row in graph.requests] == ["POST", "GET"]
 
@@ -171,6 +222,20 @@ def test_publish_container_resumes_known_connection_receipt_without_creating_med
         == "application/x-www-form-urlencoded"
     )
     assert not urlsplit(graph.requests[1]["url"]).query
+
+
+def test_acknowledged_published_receipt_prevents_resend_even_if_status_read_is_stale(graph):
+    request = with_receipt(
+        action("publish_container", {"container_id": CONTAINER}), status="published"
+    )
+    request["action"]["target"]["project_state"]["items"][0]["value"]["media_id"] = MEDIA
+    graph.ready()
+    response = invoke(request)
+    assert response["ok"] is True
+    assert response["result"]["status"] == "published"
+    assert response["result"]["media_id"] == MEDIA
+    assert response["external_effect_status"] == "succeeded"
+    assert [row["method"] for row in graph.requests] == ["GET"]
 
 
 @pytest.mark.parametrize(
@@ -240,6 +305,41 @@ def test_timeout_creating_container_is_ambiguous_and_never_retried(graph):
     assert TOKEN not in json.dumps(response)
 
 
+@pytest.mark.parametrize("body", [b"not JSON", {}, {"id": []}, {"id": {"unexpected": 1}}])
+def test_malformed_create_acknowledgement_cannot_prove_no_remote_effect(graph, body):
+    graph.reply(200, body)
+    response = invoke(action("publish_image", {"image_url": IMAGE, "caption": "Once"}))
+    assert response["ok"] is False
+    assert response["external_effect_status"] == "timeout_unknown"
+    assert response.get("definitely_no_external_effect") is not True
+    assert len(graph.requests) == 1
+
+
+def test_carousel_timeout_after_first_child_returns_known_ids_without_finalization(graph):
+    graph.reply(200, {"id": "90001"})
+    graph.fail(TimeoutError("Second child may exist"))
+    response = invoke(action("publish_carousel", {"image_urls": [IMAGE] * 3, "caption": "Partial"}))
+    assert response["ok"] is False
+    assert response["result"]["child_container_ids"] == ["90001"]
+    assert response["external_effect_status"] == "timeout_unknown"
+    assert response.get("definitely_no_external_effect") is not True
+    assert len(graph.requests) == 2
+    assert all(row["url"].endswith(f"/{ACCOUNT}/media") for row in graph.requests)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("connection_id", None), ("connection_id", "foreign"), ("revision", None), ("revision", True)],
+)
+def test_container_resume_requires_an_owned_row_and_valid_revision(graph, field, value):
+    request = with_receipt(action("publish_container", {"container_id": CONTAINER}))
+    request["action"]["target"]["project_state"]["items"][0][field] = value
+    response = invoke(request)
+    assert response["ok"] is False
+    assert response["error_code"] == "foreign_object"
+    assert graph.requests == []
+
+
 def test_readiness_timeout_retains_created_container_for_explicit_resume(graph):
     graph.reply(200, {"id": CONTAINER})
     graph.fail(TimeoutError("Read timed out"))
@@ -248,8 +348,8 @@ def test_readiness_timeout_retains_created_container_for_explicit_resume(graph):
     assert response["result"]["container_id"] == CONTAINER
     assert response["result"]["status"] == "pending"
     update = response["project_state_updates"][0]
-    assert update["namespace"] == "publishing" and update["state_key"] == "containers"
-    receipt = update["value_jsonb"]["containers"][CONTAINER]
+    assert update["namespace"] == "publishing" and update["state_key"] == "container:" + CONTAINER
+    receipt = update["value_jsonb"]
     assert receipt["container_id"] == CONTAINER
     assert receipt["ig_user_id"] == ACCOUNT
     assert receipt["connection_id"] == "connection-account-a"
@@ -293,9 +393,7 @@ def test_new_parent_finalization_ambiguity_returns_handled_pending_receipt(
             "post_send_key_error": KeyError,
         }[failure]
         graph.fail(exception("Processing failed after send " + TOKEN))
-    request = with_receipt(action(operation, values))
-    del request["action"]["target"]["project_state"]["items"][0]["value"]["containers"][CONTAINER]
-    response = invoke(request)
+    response = invoke(action(operation, values))
     # Failed invocation envelopes bypass host receipt processing. Handled pending
     # persists recovery state; explicit unknown metadata prevents a success claim.
     assert response["ok"] is True, response
@@ -305,14 +403,13 @@ def test_new_parent_finalization_ambiguity_returns_handled_pending_receipt(
     assert response["external_effect_status"] == "timeout_unknown"
     assert response.get("definitely_no_external_effect") is not True
     update = response["project_state_updates"][0]
-    assert update["namespace"] == "publishing" and update["state_key"] == "containers"
-    assert update["expected_revision"] == 7
+    assert update["namespace"] == "publishing" and update["state_key"] == "container:" + CONTAINER
+    assert "expected_revision" not in update
     assert update.get("connection_id", "connection-account-a") == "connection-account-a"
-    receipt = update["value_jsonb"]["containers"][CONTAINER]
+    receipt = update["value_jsonb"]
     assert receipt["container_id"] == CONTAINER
     assert receipt["ig_user_id"] == ACCOUNT
     assert receipt["connection_id"] == "connection-account-a"
-    assert update["value_jsonb"]["containers"]["80008"]["status"] == "pending"
     assert graph.requests[-1]["url"].endswith(f"/{ACCOUNT}/media_publish")
     assert sum(row["url"].endswith("/media_publish") for row in graph.requests) == 1
     assert len(graph.requests) == (5 if operation == "publish_carousel" else 3)

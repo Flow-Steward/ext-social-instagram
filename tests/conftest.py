@@ -80,24 +80,14 @@ def with_receipt(
         "items": [
             {
                 "namespace": "publishing",
-                "state_key": "containers",
+                "state_key": "container:" + CONTAINER,
                 "revision": 7,
                 "connection_id": "connection-account-a",
                 "value": {
-                    "containers": {
-                        CONTAINER: {
-                            "ig_user_id": account,
-                            "connection_id": connection,
-                            "container_id": CONTAINER,
-                            "status": status,
-                        },
-                        "80008": {
-                            "ig_user_id": ACCOUNT,
-                            "connection_id": "connection-account-a",
-                            "container_id": "80008",
-                            "status": "pending",
-                        },
-                    }
+                    "ig_user_id": account,
+                    "connection_id": connection,
+                    "container_id": CONTAINER,
+                    "status": status,
                 },
             }
         ]

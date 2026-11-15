@@ -54,6 +54,24 @@ def test_get_post_returns_owned_media_only(graph):
     assert [row["method"] for row in graph.requests] == ["GET"]
 
 
+@pytest.mark.parametrize("operation", ["list_posts", "get_post", "list_comments"])
+def test_instagram_login_media_reads_request_supported_fields_only(graph, operation):
+    if operation == "list_posts":
+        graph.reply(200, {"data": [{"id": MEDIA}]})
+        values = {}
+    else:
+        owned_media(graph)
+        if operation == "list_comments":
+            graph.reply(200, {"data": []})
+        values = {"media_id": MEDIA}
+    assert invoke(action(operation, values))["ok"] is True
+    fields = set(parse_qs(urlsplit(graph.requests[0]["url"]).query)["fields"][0].split(","))
+    assert {"id", "media_type", "permalink"} <= fields
+    assert not fields & {"caption", "media_product_type"}
+    if operation != "list_posts":
+        assert "owner" in fields
+
+
 @pytest.mark.parametrize("operation", ["get_post", "list_comments"])
 def test_foreign_media_owner_blocks_asset_access(graph, operation):
     owned_media(graph, OTHER_ACCOUNT)
@@ -261,3 +279,16 @@ def test_readiness_reports_missing_configuration_without_provider_calls_or_secre
     assert "ig_user_id" in response["result"]["missing_fields"]
     assert graph.requests == []
     assert TOKEN not in json.dumps(response)
+
+
+def test_readiness_does_not_require_app_secret_for_outbound_connection(graph):
+    target = action("verify_connection")["action"]["target"]
+    target["connection"]["secrets"].pop("app_secret")
+    response = invoke(
+        envelope({"mode": "query", "query": {"query_id": "provider_health"}, "target": target})
+    )
+    assert response["ok"] is True
+    assert response["result"]["configured"] is True
+    assert response["result"]["webhook_configured"] is False
+    assert response["result"]["missing_fields"] == []
+    assert graph.requests == []

@@ -141,11 +141,12 @@ project_state:
   reads:
     -
       namespace: "publishing"
-      state_key: "containers"
+      state_key_from_input: "container_id"
+      state_key_prefix: "container:"
   writes:
     -
       namespace: "publishing"
-      state_key: "containers"
+      state_key: "*"
 ui_manifest: "ui/ui_manifest.yaml"
 action_manifest: "ui/actions/actions.yaml"
 query_manifest: "ui/queries/queries.yaml"

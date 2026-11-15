@@ -1,15 +1,54 @@
 #!/usr/bin/env python3
-"""Check package availability only; credentials are not available during install."""
+"""Exercise the offline subprocess handshake without credentials or provider I/O."""
 
 import json
+import subprocess  # nosec B404 - fixed local interpreter/entrypoint, no shell or user argv.
+import sys
+from pathlib import Path
 
 
 def main() -> int:
-    import main as entrypoint
-
-    available = callable(entrypoint.main)
-    print(json.dumps({"status": "healthy" if available else "failed"}))
-    return 0 if available else 1
+    payload = {
+        "contract_version": "extension_host_v2",
+        "mode": "handshake",
+        "runtime_context": {
+            "account_id": "",
+            "project_id": "",
+            "group_id": None,
+            "for_each_id": None,
+            "step_id": None,
+            "step_execution_id": None,
+        },
+    }
+    healthy = False
+    try:
+        process = subprocess.run(  # nosec B603 - fixed script in this package; no shell/user argv.
+            [sys.executable, str(Path(__file__).resolve().parent / "main.py")],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+        response = json.loads(process.stdout)
+        healthy = (
+            process.returncode == 0
+            and response.get("ok") is True
+            and response.get("result")
+            == {
+                "contract_version": "extension_host_v2",
+                "execution_scope_fields": [
+                    "group_id",
+                    "for_each_id",
+                    "step_id",
+                    "step_execution_id",
+                ],
+            }
+        )
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        healthy = False
+    print(json.dumps({"status": "healthy" if healthy else "failed"}))
+    return 0 if healthy else 1
 
 
 if __name__ == "__main__":
