@@ -1,2 +1,2 @@
-extension.name: "Instagram"
-extension.description: "Publish images and image carousels, read owned posts and comments, reply, and trigger workflows from new comments."
+ext.display_name: "Instagram"
+ext.description: "Publish images and image carousels, read owned posts and comments, reply, and trigger workflows from new comments."

@@ -693,3 +693,26 @@ def test_actual_overview_query_stays_ungated_without_saved_account(host, graph, 
     connection_page = yaml.safe_load((ROOT / "ui/pages/connection.yaml").read_text())
     assert "connection" not in connection_page
     assert graph.requests == []
+
+
+def test_actual_host_compiler_accepts_package_locale_bindings(host):
+    from core.infrastructure.extension_runtime.extension_runtime_compile import (
+        compile_extension_bundle,
+    )
+
+    compiled = compile_extension_bundle(ROOT, logical_bundle_dir_name="flowsteward_instagram")
+    assert compiled["lifecycle"]["compile"] == "ok", compiled.get("compile_errors")
+    assert compiled["compiled_manifest"]["locale_bundles"].get("en")
+    issues = [
+        issue
+        for field in (
+            "compile_errors",
+            "compile_warnings",
+            "validation_errors",
+            "validation_warnings",
+        )
+        for issue in compiled.get(field, [])
+    ]
+    assert not [
+        issue for issue in issues if issue.get("code") in {"locale_orphan_key", "locale_dead_key"}
+    ]
