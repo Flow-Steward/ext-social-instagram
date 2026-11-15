@@ -1,0 +1,45 @@
+# Push a tag matching extension.yaml's version (`git tag v1.0.1 && git push --tags`).
+# The release publishes exactly what CI built and checked; the Flow Steward
+# extension catalog picks it up within the hour.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: The tag must match extension.yaml
+        run: |
+          version=$(sed -n 's/^version:[[:space:]]*//p' extension.yaml | tr -d "'\"")
+          test "${GITHUB_REF_NAME}" = "v${version}" \
+            || { echo "::error::tag ${GITHUB_REF_NAME} does not match version ${version}"; exit 1; }
+
+  ci:
+    needs: tag
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: dist
+          path: dist
+      - name: Verify the CI artifact checksums
+        run: cd dist && sha256sum -c SHA256SUMS
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${GITHUB_REF_NAME}" dist/*.zip dist/SHA256SUMS
+          --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --generate-notes

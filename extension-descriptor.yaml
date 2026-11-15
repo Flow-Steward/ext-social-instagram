@@ -7,17 +7,17 @@ release_version: "0.1.0"
 extension_type: "service_extension"
 identity:
   display_name: "Instagram"
-  description: "Publish images and image carousels, read owned posts and comments, reply, and trigger workflows from new comments."
+  description: "Publish Instagram photos and image carousels, reply to comments, and start workflows when new comments arrive."
   tags:
     - "instagram"
     - "images"
     - "comments"
 vendor:
   vendor_name: "Flow Steward"
-  support_url: "https://github.com/Flow-Steward"
+  support_url: "https://github.com/Flow-Steward/ext-social-instagram/issues"
 listing:
   visibility: "public_reference"
-  category: "social"
+  category: "marketing"
 distribution:
   channel: "private_byo"
   execution_modes:

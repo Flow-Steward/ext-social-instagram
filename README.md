@@ -1,8 +1,17 @@
 # Instagram for Flow Steward
 
-`flowsteward.instagram` 0.1.0 is an independent, public-SDK-only `tool_provider` for Instagram professional accounts using Instagram Login and `graph.instagram.com`. It targets `extension_host_v2`, extension API 1.9.0 and SDK 0.5.0+. The application release is 0.9.18; these version numbers describe separate contracts.
+Publish photos and image carousels to an Instagram professional account from Flow
+Steward workflows. Read owned posts, comments and replies, respond to audience
+questions, and start a workflow from new root comments. Prepare captions and images
+in earlier steps and use publishing status/recovery actions when Meta returns a
+pending result.
 
-Runtime implementation follows the coordinator-observed Docker behavioral RED. Offline tests and declarations describe the implemented contract; this candidate still requires its selected Docker static/test checks and portable bundle review. Live account/API acceptance and publication are separate steps.
+`flowsteward.instagram` 0.1.0 is an independent `tool_provider` using Instagram Login
+and `graph.instagram.com`. It requires Flow Steward 0.9.18 or later with
+`extension_host_v2`, extension runtime API 1.9.0 and public SDK 0.5.0 or later.
+Application, runtime API and SDK versions describe separate contracts. Automated
+checks use fake provider responses; no live account or production publishing
+acceptance is claimed.
 
 ## Connection setup
 
@@ -67,12 +76,36 @@ Top-level `source_id` and `correlation_id` equal the stable dedupe key, namespac
 
 Run from the target Flow Steward source checkout; do not use host pytest. The supplied SDK 0.5.0 universal wheel is a development dependency; the host supplies the same public SDK namespace at runtime. Shipped runtime imports only public SDK/stdlib/local package modules. A separate `tests/test_host_contracts.py` opts into read-only actual host consumers only in managed `fs-audit` with `/app/core`; it uses fake persistence/queue boundaries and no real database, credentials or provider. It characterizes event routing/replay and receipt/effect processing, not SQL atomicity or durable storage.
 
-First RED (coordinator owns the shared Docker gate slot):
+Run focused declaration checks from a compatible Flow Steward source checkout,
+through its coordinated managed Docker audit environment:
 
 ```sh
-./core/entrypoints/cli/scripts/lint.sh --checks extension-tests --extension-root /absolute/path/to/flowsteward_instagram --test-paths tests/test_publishing.py::test_publish_image_creates_checks_readiness_publishes_and_reads_permalink
+./core/entrypoints/cli/scripts/lint.sh --checks extension-static,extension-tests --extension-root /absolute/path/to/flowsteward_instagram --test-paths tests/test_contracts.py
 ```
 
-After observed behavioral RED and runtime implementation, the coordinator runs scoped extension static/test checks, then the public extension validate/test/bundle lifecycle. The coordinator observed the initial publish-image node fail against `not_implemented` on source `0a728db`; schema validation also reported unsupported `uniqueItems`, now removed from both config declarations. No GREEN, portable bundle, installation or publication is claimed for this candidate until actual evidence exists. The callback profile depends on host API 1.9.0's signed-callback support; absent signing credentials fail host authentication before extension ingress.
+The repository CI runs standalone credential-free unit tests and packages a ZIP
+for catalog validation. Host-consumer tests skip when the Flow Steward Core is
+absent; they do not turn standalone CI into a host integration test. Provider
+permissions, account subscriptions, actual media processing and live publishing
+must be checked with the intended account before production use. Signed comment
+callbacks require runtime API 1.9.0 and the configured app secret.
 
 `BRANDING.md` records the unchanged official Instagram icon. `PRIVACY.md` describes provider transfers and retention.
+
+## Release packaging
+
+The agreed publisher repository is `Flow-Steward/ext-social-instagram`. Its creation,
+initial push and first release are coordinated with the Core release owner;
+these source files do not claim that a public release already exists.
+
+The prepared CI workflow runs the standalone tests, builds the archive from
+tracked source with `.github/scripts/package_extension.py`, and checks it with
+the catalog checker. In CI, an unavailable catalog checker fails the job; a
+manual local offline preview still reports that catalog validation was not
+performed. The release verifies the CI artifact checksums before attaching the
+ZIP and SHA256SUMS to the release. Packaging excludes `.github/`, development wheels and
+caches. The release workflow checks that `v<version>` matches `extension.yaml`,
+runs CI and publishes the checked artifact. Create/push a release tag only after
+the agreed Core release acceptance and the publisher's final catalog review.
+Catalog registration is a separate owner-managed change; never edit generated
+catalog indexes or replace an already published version's ZIP.
