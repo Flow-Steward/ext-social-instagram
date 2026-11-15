@@ -7,6 +7,7 @@ routing/replay and receipt/effect processing, not SQL atomicity or live executio
 from __future__ import annotations
 
 import copy
+import json
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ import pytest
 import yaml
 from conftest import (
     ACCOUNT,
+    APP_SECRET,
     CONTAINER,
     IMAGE,
     MEDIA,
@@ -509,4 +511,180 @@ def test_actual_hydration_foreign_or_project_wide_receipt_is_rejected_before_pro
     response = invoke(request)
     assert response["ok"] is False
     assert response["error_code"] == "foreign_object"
+    assert graph.requests == []
+
+
+def ui_health_route(*, saved_account):
+    """Choose an actual declared health-panel owner; prefer its selected page.
+
+    The current package has only the ungated Overview route. Keeping that fallback
+    reaches the real broken envelope instead of failing on a future query name.
+    """
+    definitions = yaml.safe_load((ROOT / "ui/queries/queries.yaml").read_text())["queries"]
+    queries = {row["query_id"]: row for row in definitions}
+    routes = []
+    manifest = yaml.safe_load((ROOT / "ui/ui_manifest.yaml").read_text())
+    for page_ref in manifest["pages"]:
+        page_path = ROOT / "ui" / page_ref["ref"]
+        page = yaml.safe_load(page_path.read_text())
+        for component_ref in page.get("components", []):
+            component = yaml.safe_load((page_path.parent / component_ref["ref"]).read_text())
+            if component.get("type") == "health_panel" and component.get("query_id") in queries:
+                routes.append((page, component, queries[component["query_id"]]))
+    if saved_account:
+        selected = [
+            route for route in routes if route[0].get("connection") and route[2].get("connection")
+        ]
+        if selected:
+            return selected[0]
+    return next(route for route in routes if route[0]["page_id"] == "overview")
+
+
+def actual_query_readiness(host, monkeypatch, *, saved_account, webhook_secret):
+    from core.application.management.requests import ExtensionQueryRequest
+    from core.infrastructure.extension_runtime import extension_runtime_invocation
+
+    page, component, query = ui_health_route(saved_account=saved_account)
+    extension = {
+        **extension_record(),
+        "enabled": True,
+        "bundle_root": str(ROOT),
+        "query_definitions": yaml.safe_load((ROOT / "ui/queries/queries.yaml").read_text())[
+            "queries"
+        ],
+    }
+    connection = {
+        "connection_id": "connection-account-a",
+        "account_id": "account-a",
+        "project_id": "project-a",
+        "extension_id": "flowsteward.instagram",
+        "extension_install_id": "fixture-install",
+        "connection_type": "instagram_account",
+        "connection_config": {
+            "ig_user_id": ACCOUNT,
+            "app_id": "50005",
+            "graph_api_version": "v27.0",
+        },
+        "secret_refs": {
+            "provider_secrets": {
+                "provider_key": "flowsteward.instagram",
+                "keys": {
+                    "access_token": "fixture/selected/access-token",
+                    **({"app_secret": "fixture/selected/app-secret"} if webhook_secret else {}),
+                },
+            }
+        },
+        "enabled": True,
+    }
+
+    class Store:
+        def get_project(self, project_id):
+            return {"id": project_id, "account_id": "account-a"}
+
+        def get_project_connection(self, **values):
+            if (
+                not saved_account
+                or values.get("connection_id", "connection-account-a") != "connection-account-a"
+            ):
+                return None
+            return copy.deepcopy(connection)
+
+        def get_provider_secret(self, *, provider_key, secret_key, project_id, include_global):
+            assert provider_key == "flowsteward.instagram"
+            assert project_id == "project-a" and include_global is False
+            # Only this selected connection's fake references resolve; legacy
+            # project-global names cannot stand in for its stored credentials.
+            return (
+                {
+                    "fixture/selected/access-token": TOKEN,
+                    "fixture/selected/app-secret": APP_SECRET if webhook_secret else None,
+                }.get(secret_key)
+                if saved_account
+                else None
+            )
+
+        def log_extension_invocation(self, **values):
+            return None
+
+    store = Store()
+    captured = []
+
+    def in_process_subprocess(_command, *, input_text, **kwargs):
+        payload = json.loads(input_text)
+        captured.append(copy.deepcopy(payload))
+        response = invoke(payload)
+        return (0 if response["ok"] else 2, json.dumps(response), "", False)
+
+    # Retain actual query target resolution, declared resource hydration, host
+    # envelope serialization, response parsing and reflection guard. Replace the
+    # process/environment boundary: no process, ambient env or provider is used.
+    monkeypatch.setattr(
+        extension_runtime_invocation, "_run_subprocess_capped", in_process_subprocess
+    )
+    monkeypatch.setattr(extension_runtime_invocation, "_sandboxed_env", lambda _: {})
+    service = host.operations.ExtensionOperationService(
+        get_logger=lambda: store,
+        get_operation_store=lambda: store,
+        resolve_extension_runtime_record=lambda _: (extension, store),
+        extension_operation_handler_mode=lambda *a, **kw: "extension",
+        extension_operation_failure_status=lambda _: 502,
+    )
+    body = ExtensionQueryRequest(
+        page_id=page["page_id"],
+        component_id=component["component_id"],
+        context={"project_id": "project-a"},
+        target={"connection_id": "connection-account-a"}
+        if saved_account and query.get("connection")
+        else {},
+    )
+    result = service.execute_query(
+        "flowsteward.instagram",
+        query["query_id"],
+        body,
+        scope=host.scope(
+            account_id="account-a",
+            project_id="project-a",
+            principal_type="operator",
+            allowed_project_ids={"project-a"},
+        ),
+    )
+    assert len(captured) == 1
+    return result.query["response"], captured[0], page, query
+
+
+@pytest.mark.parametrize(
+    "webhook_secret", [False, True], ids=["outbound-only", "with-webhook-secret"]
+)
+def test_actual_ui_readiness_query_receives_saved_connection_from_host(
+    host, graph, monkeypatch, webhook_secret
+):
+    response, emitted, page, query = actual_query_readiness(
+        host, monkeypatch, saved_account=True, webhook_secret=webhook_secret
+    )
+    assert response["ok"] is True
+    assert response["result"]["configured"] is True, (
+        "The actual UI query must report a saved usable account"
+    )
+    assert response["result"]["webhook_configured"] is webhook_secret
+    assert response["result"]["missing_fields"] == []
+    assert emitted["target"]["connection"]["connection_id"] == "connection-account-a"
+    assert (
+        page["connection"]["connection_type_ids"]
+        == query["connection"]["connection_type_ids"]
+        == ["instagram_account"]
+    )
+    assert graph.requests == []
+    assert TOKEN not in json.dumps(response) and APP_SECRET not in json.dumps(response)
+
+
+def test_actual_overview_query_stays_ungated_without_saved_account(host, graph, monkeypatch):
+    response, emitted, page, query = actual_query_readiness(
+        host, monkeypatch, saved_account=False, webhook_secret=False
+    )
+    assert page["page_id"] == "overview"
+    assert "connection" not in page and "connection" not in query
+    assert emitted["target"] == {}
+    assert response["ok"] is True and response["result"]["configured"] is False
+    connection_page = yaml.safe_load((ROOT / "ui/pages/connection.yaml").read_text())
+    assert "connection" not in connection_page
     assert graph.requests == []
