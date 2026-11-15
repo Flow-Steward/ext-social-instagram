@@ -34,7 +34,18 @@ def handle_request(payload: dict[str, Any]) -> dict[str, Any]:
             return success(handshake_result())
         if mode == "query":
             query = payload.get("query")
-            if not isinstance(query, dict) or query.get("query_id") != "provider_health":
+            if not isinstance(query, dict):
+                raise ProviderFailure("invalid_payload")
+            if query.get("query_id") == "provider_health":
+                return success(
+                    {
+                        "status": "select_connection",
+                        "configured": False,
+                        "webhook_configured": False,
+                        "missing_fields": ["selected_connection"],
+                    }
+                )
+            if query.get("query_id") != "connection_health":
                 raise ProviderFailure("invalid_payload")
             connection = connection_from_payload(payload)
             missing = [
@@ -61,6 +72,22 @@ def handle_request(payload: dict[str, Any]) -> dict[str, Any]:
                     "configured": True,
                     "webhook_configured": bool(connection and connection.secrets.get("app_secret")),
                     "missing_fields": [],
+                    "checks": [
+                        {
+                            "name": "Publishing configuration",
+                            "status": "healthy",
+                            "detail": "Required outbound configuration is present; account identity and permissions are verified separately.",
+                        },
+                        {
+                            "name": "Receiving comments",
+                            "status": "healthy"
+                            if connection and connection.secrets.get("app_secret")
+                            else "warning",
+                            "detail": "Webhook signing secret is present; configure the callback below."
+                            if connection and connection.secrets.get("app_secret")
+                            else "Add the optional app secret to receive signed comments; outbound publishing does not require it.",
+                        },
+                    ],
                 }
             )
         action = payload.get("action")

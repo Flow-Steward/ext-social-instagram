@@ -119,13 +119,14 @@ class VirtualBlockingClock:
 
     def wait(self, seconds, socket_timeout):
         duration = min(seconds, socket_timeout)
-        if self.alarm_at is not None and self.alarm_at <= self.now + duration:
+        finishes_at = self.now + duration
+        while self.alarm_at is not None and self.alarm_at <= finishes_at:
             self.now = self.alarm_at
             self.alarm_at = self.now + self.interval if self.interval else None
             handler = self.handlers[signal.SIGALRM]
             assert callable(handler), "A runtime alarm must install its interrupt handler"
             handler(signal.SIGALRM, None)
-        self.now += duration
+        self.now = max(self.now, finishes_at)
         if seconds > socket_timeout:
             raise TimeoutError("virtual socket wait exhausted")
 
@@ -216,3 +217,114 @@ def test_real_adapter_known_parent_returns_receipt_before_operation_deadline(mon
     assert all(0 < timeout <= 25.0 - started for _, started, timeout in calls)
     assert clock.now <= 25.0, "The pending receipt must return before the host's 30-second kill"
     assert all(stream.closed for stream in streams)
+
+
+@pytest.mark.parametrize("outcome", ["normal", "http_error", "body_error", "deadline"])
+def test_real_adapter_restores_caller_alarm_after_normal_http_error_or_failure(
+    monkeypatch, outcome
+):
+    clock = VirtualBlockingClock(monkeypatch)
+    caller_events = []
+
+    def caller_handler(number, frame):
+        caller_events.append((number, clock.now))
+
+    signal.signal(signal.SIGALRM, caller_handler)
+    signal.setitimer(signal.ITIMER_REAL, 20.0, 4.0)
+
+    class Stream(io.BytesIO):
+        status = 200
+        headers = {}
+
+        def read1(self, size=-1):
+            if self.tell() == 0:
+                clock.wait(4.0 if outcome == "deadline" else 1.0, 3.0)
+                if outcome == "body_error":
+                    raise ValueError("fixture body decoding boundary")
+            return super().read(size)
+
+    stream = Stream(b'{"id":"70007"}')
+
+    def opener(request, *, timeout_seconds):
+        clock.wait(1.0, timeout_seconds)
+        if outcome == "http_error":
+            raise HTTPError(request.full_url, 503, "busy", {}, stream)
+        return stream
+
+    monkeypatch.setattr(transport, "open_pinned_url", opener)
+    if outcome in {"body_error", "deadline"}:
+        with pytest.raises(ValueError if outcome == "body_error" else TimeoutError):
+            transport.pinned_exchange(
+                "GET",
+                "https://graph.instagram.com/v27.0/70007",
+                headers={},
+                body=None,
+                timeout=3,
+                max_bytes=100,
+            )
+    else:
+        status, _, _ = transport.pinned_exchange(
+            "GET",
+            "https://graph.instagram.com/v27.0/70007",
+            headers={},
+            body=None,
+            timeout=3,
+            max_bytes=100,
+        )
+        assert status == (503 if outcome == "http_error" else 200)
+    assert stream.closed
+    assert signal.getsignal(signal.SIGALRM) is caller_handler
+    assert signal.getitimer(signal.ITIMER_REAL) == pytest.approx((20.0 - clock.now, 4.0))
+    assert caller_events == []
+
+
+def test_real_adapter_delivers_earlier_caller_alarm_without_losing_its_handler(monkeypatch):
+    clock = VirtualBlockingClock(monkeypatch)
+    caller_events = []
+
+    def caller_handler(number, frame):
+        caller_events.append((number, clock.now))
+
+    signal.signal(signal.SIGALRM, caller_handler)
+    signal.setitimer(signal.ITIMER_REAL, 1.0)
+    _, streams = delayed_sdk_opener(monkeypatch, clock, [({"id": CONTAINER}, 0, 2)])
+    status, _, _ = transport.pinned_exchange(
+        "GET",
+        "https://graph.instagram.com/v27.0/70007",
+        headers={},
+        body=None,
+        timeout=3,
+        max_bytes=100,
+    )
+    assert status == 200 and clock.now == 2.0
+    assert caller_events == [(signal.SIGALRM, 1.0)]
+    assert signal.getsignal(signal.SIGALRM) is caller_handler
+    assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+    assert all(stream.closed for stream in streams)
+
+
+def test_real_adapter_deadline_cannot_be_swallowed_by_opener_exception_retry(monkeypatch):
+    clock = VirtualBlockingClock(monkeypatch)
+    swallowed = []
+
+    def opener(request, *, timeout_seconds):
+        try:
+            clock.wait(9, timeout_seconds)
+        except Exception:
+            swallowed.append(clock.now)
+            clock.wait(9, timeout_seconds)
+        pytest.fail("A deadline must escape the opener's retry boundary")
+
+    monkeypatch.setattr(transport, "open_pinned_url", opener)
+    with pytest.raises(TimeoutError):
+        transport.pinned_exchange(
+            "GET",
+            "https://graph.instagram.com/v27.0/70007",
+            headers={},
+            body=None,
+            timeout=3,
+            max_bytes=100,
+        )
+    assert clock.now <= 3
+    assert swallowed == []
+    assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)

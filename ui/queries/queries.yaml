@@ -1,20 +1,32 @@
 queries:
   -
     query_id: "provider_health"
-    title: "Instagram readiness"
-    description: "Read redacted connection readiness without provider writes."
+    title: "Instagram account selection"
+    description: "Explain where to select an account; this ungated overview does not inspect saved credentials."
     required_scopes:
       - "extension:invoke"
     handler:
       mode: "extension"
-      config:
-        runtime_resources:
-          project_connection: true
-          provider_key: "flowsteward.instagram"
-          provider_secrets:
-            - "access_token"
-            - "app_secret"
     result_fields:
+      - "result.status"
+      - "result.configured"
+      - "result.webhook_configured"
+      - "result.missing_fields"
+    error_codes:
+      - "invalid_payload"
+  -
+    query_id: "connection_health"
+    title: "Selected Instagram account readiness"
+    description: "Read the selected account's redacted publishing and webhook readiness without provider traffic."
+    connection:
+      connection_type_ids:
+        - "instagram_account"
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    result_fields:
+      - "result.checks"
       - "result.status"
       - "result.configured"
       - "result.webhook_configured"

@@ -1,0 +1,4 @@
+component_id: "instagram_connection_health"
+type: "health_panel"
+title: "Selected Instagram account readiness"
+query_id: "connection_health"

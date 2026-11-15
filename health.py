@@ -2,7 +2,9 @@
 """Exercise the offline subprocess handshake without credentials or provider I/O."""
 
 import json
-import subprocess  # nosec B404 - fixed local interpreter/entrypoint, no shell or user argv.
+
+# Fixed local interpreter/entrypoint; no shell or user-supplied argv.
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -22,7 +24,8 @@ def main() -> int:
     }
     healthy = False
     try:
-        process = subprocess.run(  # nosec B603 - fixed script in this package; no shell/user argv.
+        # Fixed script in this package; no shell or user-supplied argv.
+        process = subprocess.run(  # nosec B603
             [sys.executable, str(Path(__file__).resolve().parent / "main.py")],
             input=json.dumps(payload),
             capture_output=True,

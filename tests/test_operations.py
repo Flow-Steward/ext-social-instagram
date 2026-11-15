@@ -276,7 +276,8 @@ def test_readiness_reports_missing_configuration_without_provider_calls_or_secre
     response = invoke(envelope({"mode": "query", "query": {"query_id": "provider_health"}}))
     assert response["ok"] is True, response
     assert response["result"]["configured"] is False
-    assert "ig_user_id" in response["result"]["missing_fields"]
+    assert response["result"]["status"] == "select_connection"
+    assert response["result"]["missing_fields"] == ["selected_connection"]
     assert graph.requests == []
     assert TOKEN not in json.dumps(response)
 
@@ -285,7 +286,7 @@ def test_readiness_does_not_require_app_secret_for_outbound_connection(graph):
     target = action("verify_connection")["action"]["target"]
     target["connection"]["secrets"].pop("app_secret")
     response = invoke(
-        envelope({"mode": "query", "query": {"query_id": "provider_health"}, "target": target})
+        envelope({"mode": "query", "query": {"query_id": "connection_health"}, "target": target})
     )
     assert response["ok"] is True
     assert response["result"]["configured"] is True

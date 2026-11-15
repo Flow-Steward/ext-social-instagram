@@ -11,6 +11,7 @@ from urllib.parse import urlencode, urlsplit
 
 from flowsteward_extension_sdk import Request, open_pinned_url
 
+from handlers.deadline import blocking_deadline
 from handlers.responses import ProviderFailure, WriteBoundary
 
 MAX_BYTES = 2 * 1024 * 1024
@@ -37,34 +38,32 @@ def pinned_exchange(
         or not 0 < max_bytes <= MAX_BYTES
     ):
         raise ProviderFailure("invalid_payload")
-    deadline = time.monotonic() + timeout
-    try:
-        response = open_pinned_url(
-            Request(url, data=body, headers=headers, method=method), timeout_seconds=timeout
-        )
-    except HTTPError as error:
-        response = error
-    try:
-        chunks = []
-        size = 0
-        reader = getattr(response, "read1", None) or response.read
-        while True:
-            if time.monotonic() >= deadline:
-                raise TimeoutError("Response deadline exhausted")
-            chunk = reader(min(65536, max_bytes + 1 - size))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            size += len(chunk)
-            if size > max_bytes:
-                raise ProviderFailure("response_too_large")
-        return (
-            int(response.status if response.status is not None else response.code),
-            dict(response.headers),
-            b"".join(chunks),
-        )
-    finally:
-        response.close()
+    with blocking_deadline(timeout):
+        try:
+            response = open_pinned_url(
+                Request(url, data=body, headers=headers, method=method), timeout_seconds=timeout
+            )
+        except HTTPError as error:
+            response = error
+        try:
+            chunks = []
+            size = 0
+            reader = getattr(response, "read1", None) or response.read
+            while True:
+                chunk = reader(min(65536, max_bytes + 1 - size))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                size += len(chunk)
+                if size > max_bytes:
+                    raise ProviderFailure("response_too_large")
+            return (
+                int(response.status if response.status is not None else response.code),
+                dict(response.headers),
+                b"".join(chunks),
+            )
+        finally:
+            response.close()
 
 
 _http_exchange = pinned_exchange

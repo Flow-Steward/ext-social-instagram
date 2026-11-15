@@ -666,6 +666,11 @@ def test_actual_ui_readiness_query_receives_saved_connection_from_host(
         "The actual UI query must report a saved usable account"
     )
     assert response["result"]["webhook_configured"] is webhook_secret
+    visible_checks = {row["name"]: row for row in response["result"]["checks"]}
+    assert visible_checks["Publishing configuration"]["status"] == "healthy"
+    assert visible_checks["Receiving comments"]["status"] == (
+        "healthy" if webhook_secret else "warning"
+    )
     assert response["result"]["missing_fields"] == []
     assert emitted["target"]["connection"]["connection_id"] == "connection-account-a"
     assert (

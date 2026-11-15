@@ -1,6 +1,6 @@
 page_id: "overview"
 title: "Instagram overview"
-description: "Check readiness before or after creating an Instagram connection."
+description: "Create an account connection, then select it on Webhooks to check readiness."
 project_scoped: true
 components:
   - ref: "../components/health_panel.yaml"

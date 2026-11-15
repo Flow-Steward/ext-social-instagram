@@ -1,4 +1,4 @@
 component_id: "instagram_health"
 type: "health_panel"
-title: "Instagram readiness"
+title: "Select an account on Webhooks to check readiness"
 query_id: "provider_health"

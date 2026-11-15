@@ -191,7 +191,10 @@ def test_manual_webhook_setup_uses_selected_account_without_blocking_first_conne
     webhook_page = load("ui/pages/webhooks.yaml")
     assert webhook_page["project_scoped"] is True
     assert webhook_page["connection"] == {"connection_type_ids": ["instagram_account"]}
-    assert webhook_page["components"] == [{"ref": "../components/callback_setup.yaml"}]
+    assert webhook_page["components"] == [
+        {"ref": "../components/connection_health.yaml"},
+        {"ref": "../components/callback_setup.yaml"},
+    ]
     callback = load("ui/components/callback_setup.yaml")
     assert callback["type"] == "callback_setup"
     assert callback["callback_id"] == load("extension.yaml")["callbacks"][0]["callback_id"]
