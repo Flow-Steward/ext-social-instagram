@@ -222,6 +222,8 @@ def test_invalid_operation_inputs_are_refused_without_traffic(graph, operation, 
         (403, 200, "permission_denied"),
         (429, 4, "rate_limited"),
         (503, 2, "provider_unavailable"),
+        (408, 1, "provider_unavailable"),
+        (408, 4, "rate_limited"),
     ],
 )
 def test_provider_error_classification_never_echoes_tokens(graph, capsys, status, code, expected):
@@ -232,6 +234,9 @@ def test_provider_error_classification_never_echoes_tokens(graph, capsys, status
     assert response["errors"][0] == {"code": expected, "message": response["error"]}
     captured = capsys.readouterr()
     assert TOKEN not in json.dumps(response) + captured.out + captured.err
+    assert [request["method"] for request in graph.requests] == ["GET"]
+    assert "external_effect_status" not in response
+    assert "definitely_no_external_effect" not in response
 
 
 def test_read_timeout_is_read_failure_without_external_effect_metadata(graph):

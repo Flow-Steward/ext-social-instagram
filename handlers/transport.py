@@ -147,7 +147,8 @@ class GraphClient:
                     failure = "not_found"
                 else:
                     failure = "provider_unavailable"
-                rejection = 400 <= status < 500
+                # A timed-out POST remains uncertain under the conservative write policy.
+                rejection = 400 <= status < 500 and status != 408
                 if method == "POST" and rejection:
                     self.boundary.rejections += 1
                 raise ProviderFailure(failure, uncertain=method == "POST" and not rejection)
