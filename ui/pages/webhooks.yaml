@@ -1,0 +1,9 @@
+page_id: "webhooks"
+title: "Webhooks"
+description: "Select a saved Instagram connection as the Meta app webhook anchor."
+project_scoped: true
+connection:
+  connection_type_ids:
+    - "instagram_account"
+components:
+  - ref: "../components/callback_setup.yaml"

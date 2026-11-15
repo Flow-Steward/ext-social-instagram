@@ -1,0 +1,6 @@
+page_id: "overview"
+title: "Instagram overview"
+description: "Check readiness before or after creating an Instagram connection."
+project_scoped: true
+components:
+  - ref: "../components/health_panel.yaml"

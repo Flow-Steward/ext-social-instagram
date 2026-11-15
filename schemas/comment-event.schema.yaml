@@ -1,0 +1,15 @@
+type: object
+required: [provider, project_id, connection_id, ig_user_id, media_id, comment_id, author_id, text, event_timestamp, action, dedupe_key]
+additionalProperties: false
+properties:
+  provider: {const: flowsteward.instagram}
+  project_id: {type: string}
+  connection_id: {type: string}
+  ig_user_id: {type: string}
+  media_id: {type: string}
+  comment_id: {type: string}
+  author_id: {type: string}
+  text: {type: string}
+  event_timestamp: {type: integer, description: Signed provider entry delivery time; never claimed as comment creation time.}
+  action: {const: created}
+  dedupe_key: {type: string}

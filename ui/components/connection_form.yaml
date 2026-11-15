@@ -1,0 +1,55 @@
+component_id: "instagram_connection"
+type: "connection_form"
+title: "Instagram professional account"
+description: "Create one connection per account. Secrets are stored in encrypted project storage."
+data:
+  connection_kind: "extension"
+  connection_type: "instagram_account"
+  config_fields:
+    - "ig_user_id"
+    - "app_id"
+    - "graph_api_version"
+    - "webhook_account_ids"
+  secret_fields:
+    - "access_token"
+    - "app_secret"
+  required_secret_fields:
+    - "access_token"
+    - "app_secret"
+defaults:
+  display_name: "Instagram"
+fields:
+  -
+    path: "display_name"
+    label: "Connection name"
+    widget: "text"
+  -
+    path: "ig_user_id"
+    label: "Instagram account ID"
+    widget: "text"
+    required: true
+  -
+    path: "app_id"
+    label: "Meta app ID"
+    widget: "text"
+    required: true
+  -
+    path: "graph_api_version"
+    label: "Graph API version"
+    widget: "text"
+    required: true
+  -
+    path: "webhook_account_ids"
+    label: "Webhook account allowlist"
+    widget: "json"
+    help: "Optional JSON array of allowed account IDs. Omit for this account only; empty disables intake."
+  -
+    path: "access_token"
+    label: "Instagram Login user access token"
+    widget: "secret"
+    required: true
+  -
+    path: "app_secret"
+    label: "Meta app secret"
+    widget: "secret"
+    required: true

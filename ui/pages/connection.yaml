@@ -1,0 +1,7 @@
+page_id: "connection"
+title: "Instagram connections"
+description: "Create or edit an Instagram connection, then open Webhooks to choose an intake anchor."
+project_scoped: true
+components:
+  - ref: "../components/connection_form.yaml"
+  - ref: "../components/setup_help.yaml"

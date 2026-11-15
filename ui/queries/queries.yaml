@@ -1,0 +1,33 @@
+queries:
+  -
+    query_id: "provider_health"
+    title: "Instagram readiness"
+    description: "Read redacted connection readiness without provider writes."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+      config:
+        runtime_resources:
+          project_connection: true
+          provider_key: "flowsteward.instagram"
+          provider_secrets:
+            - "access_token"
+            - "app_secret"
+    result_fields:
+      - "result.status"
+      - "result.configured"
+      - "result.missing_fields"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"

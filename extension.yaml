@@ -1,0 +1,159 @@
+manifest_version: 2
+lifecycle:
+  data_schema_version: 1
+  data_migrations: []
+extension_id: "flowsteward.instagram"
+kind: "tool_provider"
+version: "0.1.0"
+display_name: "Instagram"
+description: "Publish images and image carousels, read owned posts and comments, reply, and trigger workflows from new comments."
+vendor:
+  name: "Flow Steward"
+  support_url: "https://github.com/Flow-Steward"
+listing:
+  category: "social"
+  tags:
+    - "instagram"
+    - "images"
+    - "comments"
+  summary: "Instagram professional account publishing and comment workflows."
+features:
+  - "tool"
+  - "action"
+  - "query"
+  - "workflow_trigger"
+required_scopes:
+  - "extension:invoke"
+  - "read:projects"
+event_subscriptions:
+  -
+    event_type: "instagram.comment.created"
+    severity: "any"
+    conditions: {}
+egress:
+  hosts:
+    - "graph.instagram.com"
+schemas:
+  config: "schemas/config.schema.yaml"
+  secrets: "schemas/secrets.schema.yaml"
+  subscriptions: "schemas/subscriptions.schema.yaml"
+  input:
+    type: "object"
+  output:
+    type: "object"
+    required:
+      - "ok"
+    properties:
+      ok:
+        type: "boolean"
+entrypoint:
+  mode: "subprocess"
+  command:
+    - "python3"
+    - "main.py"
+health:
+  command:
+    - "python3"
+    - "health.py"
+  timeout_seconds: 5
+account_scope:
+  scope_type: "project"
+  description: "One connection per Instagram professional account; callbacks retain their authenticated anchor connection."
+runtime_grants:
+  resources:
+    project_connection: {}
+    provider_secrets:
+      secret_keys:
+        - "access_token"
+        - "app_secret"
+    callback_registrations: {}
+callbacks:
+  -
+    callback_id: "comments"
+    purpose: "inbound_events"
+    methods:
+      - "GET"
+      - "POST"
+    action_id: "ingress_event"
+    connection_scoped: true
+    auth:
+      type: "raw_body_hmac_sha256"
+      signature_header: "X-Hub-Signature-256"
+      signature_prefix: "sha256="
+      secret_name: "app_secret"
+      verification:
+        token_parameter: "hub.verify_token"
+        challenge_parameter: "hub.challenge"
+        required_parameters:
+          hub.mode: "subscribe"
+workflow_triggers:
+  -
+    trigger_type_id: "instagram_comment_created"
+    provider_key: "flowsteward.instagram"
+    display_name: "New Instagram comment"
+    description: "New root comments by other people on allowed accounts. Filters retain the authenticated callback anchor."
+    event_name: "instagram.comment.created"
+    provider_ingress_url_required: true
+    config_schema:
+      type: "object"
+      additionalProperties: false
+      properties:
+        ig_user_id:
+          type: "string"
+        media_id:
+          type: "string"
+    ui_schema:
+      fields:
+        -
+          name: "ig_user_id"
+          widget_type: "text"
+          label: "Instagram account ID"
+        -
+          name: "media_id"
+          widget_type: "text"
+          label: "Media ID"
+external_effects:
+  -
+    operation_id: "publish_image"
+    effect_kind: "content_publish"
+    channel: "instagram"
+    idempotency: "required"
+    test_mode_behavior: "suppress"
+  -
+    operation_id: "publish_carousel"
+    effect_kind: "content_publish"
+    channel: "instagram"
+    idempotency: "required"
+    test_mode_behavior: "suppress"
+  -
+    operation_id: "publish_container"
+    effect_kind: "content_publish"
+    channel: "instagram"
+    idempotency: "required"
+    test_mode_behavior: "suppress"
+  -
+    operation_id: "reply_to_comment"
+    effect_kind: "comment_reply"
+    channel: "instagram"
+    idempotency: "required"
+    test_mode_behavior: "suppress"
+project_state:
+  reads:
+    -
+      namespace: "publishing"
+      state_key: "containers"
+  writes:
+    -
+      namespace: "publishing"
+      state_key: "containers"
+ui_manifest: "ui/ui_manifest.yaml"
+action_manifest: "ui/actions/actions.yaml"
+query_manifest: "ui/queries/queries.yaml"
+runtime:
+  contract_version: "extension_host_v2"
+  compatibility:
+    platform_min: "1.9.0"
+  extension_contract_v2:
+    connection_types: "contracts/connection_types.yaml"
+    operation_manifest: "contracts/operation_manifest.yaml"
+    step_ui_manifest: "contracts/step_ui_manifest.yaml"

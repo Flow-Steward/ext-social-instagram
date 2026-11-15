@@ -1,0 +1,19 @@
+[project]
+name = "flowsteward-instagram-extension"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["flowsteward-extension-sdk>=0.5.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [".fs-python", "dev-wheels", "wheels"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+explicit_package_bases = true
+exclude = "(^\\.fs-python/|^dev-wheels/|^wheels/)"

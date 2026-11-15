@@ -1,0 +1,382 @@
+actions:
+  -
+    action_id: "publish_image"
+    workflow_visible: true
+    title: "Publish Instagram image"
+    description: "Publish a publicly accessible HTTPS JPEG, at most 8 MB and aspect ratio 4:5 to 1.91:1; provider enforces the file specification. Caption maximum 2200 characters, never truncated."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "image_url"
+        type: "string"
+        required: true
+      -
+        name: "caption"
+        type: "string"
+        required: true
+        maxLength: 2200
+      -
+        name: "alt_text"
+        type: "string"
+        required: false
+        maxLength: 1000
+    result_fields:
+      - "result.container_id"
+      - "result.status"
+      - "result.media_id"
+      - "result.permalink"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "publish_carousel"
+    workflow_visible: true
+    title: "Publish Instagram image carousel"
+    description: "Publish 2 to 20 publicly accessible HTTPS JPEG images; no video. Caption maximum 2200 characters. Partial creates return container IDs and never publish an incomplete carousel."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "image_urls"
+        type: "array"
+        required: true
+        minItems: 2
+        maxItems: 20
+        items:
+          type: "string"
+      -
+        name: "caption"
+        type: "string"
+        required: true
+        maxLength: 2200
+    result_fields:
+      - "result.container_id"
+      - "result.child_container_ids"
+      - "result.status"
+      - "result.media_id"
+      - "result.permalink"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "get_publish_status"
+    workflow_visible: true
+    title: "Read Instagram publish status"
+    description: "Read container status only. Never creates or finalizes media."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "container_id"
+        type: "string"
+        required: true
+    result_fields:
+      - "result.container_id"
+      - "result.status"
+      - "result.status_code"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "publish_container"
+    workflow_visible: true
+    title: "Publish an existing Instagram container"
+    description: "Resume a host-recorded container for this connection. Check status, then finalize only FINISHED containers through the configured account. Never recreate or blindly retry an ambiguous publish."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "container_id"
+        type: "string"
+        required: true
+    result_fields:
+      - "result.container_id"
+      - "result.status"
+      - "result.media_id"
+      - "result.permalink"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "list_posts"
+    workflow_visible: true
+    title: "List Instagram posts"
+    description: "List Instagram posts using the selected Instagram Login connection and verified asset ownership."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "limit"
+        type: "integer"
+        required: false
+      -
+        name: "cursor"
+        type: "string"
+        required: false
+    result_fields:
+      - "result.items"
+      - "result.next_cursor"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "get_post"
+    workflow_visible: true
+    title: "Get Instagram post"
+    description: "Get Instagram post using the selected Instagram Login connection and verified asset ownership."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "media_id"
+        type: "string"
+        required: true
+    result_fields:
+      - "result.post"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "list_comments"
+    workflow_visible: true
+    title: "List Instagram comments"
+    description: "List Instagram comments using the selected Instagram Login connection and verified asset ownership."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "media_id"
+        type: "string"
+        required: true
+      -
+        name: "limit"
+        type: "integer"
+        required: false
+      -
+        name: "cursor"
+        type: "string"
+        required: false
+    result_fields:
+      - "result.items"
+      - "result.next_cursor"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "list_replies"
+    workflow_visible: true
+    title: "List Instagram replies"
+    description: "List Instagram replies using the selected Instagram Login connection and verified asset ownership."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "comment_id"
+        type: "string"
+        required: true
+      -
+        name: "limit"
+        type: "integer"
+        required: false
+      -
+        name: "cursor"
+        type: "string"
+        required: false
+    result_fields:
+      - "result.items"
+      - "result.next_cursor"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "reply_to_comment"
+    workflow_visible: true
+    title: "Reply to Instagram comment"
+    description: "Reply to Instagram comment using the selected Instagram Login connection and verified asset ownership."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters:
+      -
+        name: "comment_id"
+        type: "string"
+        required: true
+      -
+        name: "text"
+        type: "string"
+        required: true
+    result_fields:
+      - "result.comment_id"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "verify_connection"
+    workflow_visible: false
+    title: "Verify Instagram connection"
+    description: "Read-only verification."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters: []
+    result_fields:
+      - "result.verified"
+      - "result.ig_user_id"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"
+  -
+    action_id: "ingress_event"
+    workflow_visible: false
+    title: "Receive Instagram comments"
+    description: "Normalize signed comments for explicitly allowed accounts; retain the authenticated anchor connection."
+    required_scopes:
+      - "extension:invoke"
+    handler:
+      mode: "extension"
+    mutates_platform: false
+    parameters: []
+    result_fields:
+      - "result.ingress_type"
+    error_codes:
+      - "not_configured"
+      - "invalid_payload"
+      - "authentication_failed"
+      - "permission_denied"
+      - "foreign_object"
+      - "not_found"
+      - "rate_limited"
+      - "provider_unavailable"
+      - "timeout"
+      - "response_too_large"
+      - "ambiguous_external_effect"
+      - "internal_error"

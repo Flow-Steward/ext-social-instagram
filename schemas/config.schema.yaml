@@ -1,0 +1,31 @@
+type: "object"
+additionalProperties: false
+required:
+  - "ig_user_id"
+  - "app_id"
+  - "graph_api_version"
+properties:
+  ig_user_id:
+    type: "string"
+    pattern: "^[0-9]+$"
+    maxLength: 64
+    title: "Instagram professional account ID"
+  app_id:
+    type: "string"
+    pattern: "^[0-9]+$"
+    maxLength: 64
+    title: "Meta app ID"
+  graph_api_version:
+    type: "string"
+    pattern: "^v[0-9]+\\.[0-9]+$"
+    maxLength: 16
+    title: "Graph API version"
+  webhook_account_ids:
+    type: "array"
+    maxItems: 100
+    uniqueItems: true
+    items:
+      type: "string"
+      pattern: "^[0-9]+$"
+      maxLength: 64
+    description: "Accounts allowed on this authenticated callback anchor. Omit to allow only ig_user_id. An empty list disables intake."

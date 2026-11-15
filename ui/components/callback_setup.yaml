@@ -1,0 +1,6 @@
+component_id: "instagram_callback"
+type: "callback_setup"
+title: "Instagram comments webhook"
+callback_id: "comments"
+setup_mode: "manual"
+description: "Choose an anchor connection per app. Copy its HTTPS callback URL and verify token into the Meta app dashboard, select Instagram and subscribe comments. The host verifies the raw-body signature."

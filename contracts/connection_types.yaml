@@ -1,0 +1,63 @@
+connection_types:
+  -
+    connection_type_id: "instagram_account"
+    display_name: "Instagram professional account"
+    description: "Instagram Login connection; no Facebook Login token fallback."
+    auth:
+      type: "static_secret"
+    config_schema:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "ig_user_id"
+        - "app_id"
+        - "graph_api_version"
+      properties:
+        ig_user_id:
+          type: "string"
+          pattern: "^[0-9]+$"
+          maxLength: 64
+          title: "Instagram professional account ID"
+        app_id:
+          type: "string"
+          pattern: "^[0-9]+$"
+          maxLength: 64
+          title: "Meta app ID"
+        graph_api_version:
+          type: "string"
+          pattern: "^v[0-9]+\\.[0-9]+$"
+          maxLength: 16
+          title: "Graph API version"
+        webhook_account_ids:
+          type: "array"
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: "string"
+            pattern: "^[0-9]+$"
+            maxLength: 64
+          description: "Accounts allowed on this authenticated callback anchor. Omit to allow only ig_user_id. An empty list disables intake."
+    secret_schema:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "access_token"
+        - "app_secret"
+      properties:
+        access_token:
+          type: "string"
+          minLength: 1
+          maxLength: 4096
+          title: "Instagram Login user access token"
+        app_secret:
+          type: "string"
+          minLength: 1
+          maxLength: 4096
+          title: "Meta app secret"
+    ingress_schema:
+      type: "object"
+    capabilities:
+      notifications: false
+      human_decisions: false
+      webhook_ingress: true
+      polling_ingress: false

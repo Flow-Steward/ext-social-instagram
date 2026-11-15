@@ -1,0 +1,4 @@
+component_id: "instagram_health"
+type: "health_panel"
+title: "Instagram readiness"
+query_id: "provider_health"

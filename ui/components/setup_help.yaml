@@ -1,0 +1,4 @@
+component_id: "instagram_setup_help"
+type: "markdown"
+title: "Publishing and comments setup"
+content: "Use Instagram Login with instagram_business_basic, instagram_business_content_publish and instagram_business_manage_comments. Professional accounts only. JPEG images must be public HTTPS, at most 8 MB, ratio 4:5 to 1.91:1. Captions are limited to 2200 characters; image carousels contain 2–20 items. Provider validates image bytes. See README for permissions, app review and pending-container recovery."
