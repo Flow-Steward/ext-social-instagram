@@ -1,127 +1,127 @@
 forms:
   -
     operation_id: "publish_image"
-    title: "Publish Instagram image"
+    title: "Publish an Instagram photo"
     fields:
       -
         name: "image_url"
-        label: "Image url"
+        label: "Public JPEG image URL"
         widget_type: "text"
         required: true
       -
         name: "caption"
-        label: "Caption"
+        label: "Post caption"
         widget_type: "textarea"
         required: true
       -
         name: "alt_text"
-        label: "Alt text"
+        label: "Image alternative text"
         widget_type: "text"
         required: false
   -
     operation_id: "publish_carousel"
-    title: "Publish Instagram image carousel"
+    title: "Publish an Instagram image carousel"
     fields:
       -
         name: "image_urls"
-        label: "Image urls"
+        label: "Public JPEG image URLs"
         widget_type: "json"
         required: true
       -
         name: "caption"
-        label: "Caption"
+        label: "Post caption"
         widget_type: "textarea"
         required: true
   -
     operation_id: "get_publish_status"
-    title: "Read Instagram publish status"
+    title: "Check Instagram publication status"
     fields:
       -
         name: "container_id"
-        label: "Container id"
+        label: "Publishing container ID"
         widget_type: "text"
         required: true
   -
     operation_id: "publish_container"
-    title: "Publish an existing Instagram container"
+    title: "Resume an Instagram publication"
     fields:
       -
         name: "container_id"
-        label: "Container id"
+        label: "Publishing container ID"
         widget_type: "text"
         required: true
   -
     operation_id: "list_posts"
-    title: "List Instagram posts"
+    title: "List Instagram account posts"
     fields:
       -
         name: "limit"
-        label: "Limit"
+        label: "Maximum items per page"
         widget_type: "number"
         required: false
       -
         name: "cursor"
-        label: "Cursor"
+        label: "Next-page cursor"
         widget_type: "text"
         required: false
   -
     operation_id: "get_post"
-    title: "Get Instagram post"
+    title: "Get an Instagram post"
     fields:
       -
         name: "media_id"
-        label: "Media id"
+        label: "Instagram media ID"
         widget_type: "text"
         required: true
   -
     operation_id: "list_comments"
-    title: "List Instagram comments"
+    title: "List comments on an Instagram post"
     fields:
       -
         name: "media_id"
-        label: "Media id"
+        label: "Instagram media ID"
         widget_type: "text"
         required: true
       -
         name: "limit"
-        label: "Limit"
+        label: "Maximum items per page"
         widget_type: "number"
         required: false
       -
         name: "cursor"
-        label: "Cursor"
+        label: "Next-page cursor"
         widget_type: "text"
         required: false
   -
     operation_id: "list_replies"
-    title: "List Instagram replies"
+    title: "List replies to an Instagram comment"
     fields:
       -
         name: "comment_id"
-        label: "Comment id"
+        label: "Instagram comment ID"
         widget_type: "text"
         required: true
       -
         name: "limit"
-        label: "Limit"
+        label: "Maximum items per page"
         widget_type: "number"
         required: false
       -
         name: "cursor"
-        label: "Cursor"
+        label: "Next-page cursor"
         widget_type: "text"
         required: false
   -
     operation_id: "reply_to_comment"
-    title: "Reply to Instagram comment"
+    title: "Reply to an Instagram comment"
     fields:
       -
         name: "comment_id"
-        label: "Comment id"
+        label: "Instagram comment ID"
         widget_type: "text"
         required: true
       -
         name: "text"
-        label: "Text"
+        label: "Reply text"
         widget_type: "textarea"
         required: true

@@ -2,8 +2,8 @@ actions:
   -
     action_id: "publish_image"
     workflow_visible: true
-    title: "Publish Instagram image"
-    description: "Publish a publicly accessible HTTPS JPEG, at most 8 MB and aspect ratio 4:5 to 1.91:1; provider enforces the file specification. Caption maximum 2200 characters, never truncated."
+    title: "Publish an Instagram photo"
+    description: "Publish a public HTTPS JPEG with a caption and optional alternative text to the selected professional account. Caption limit: 2,200 characters; return status and available media ID and permalink."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -45,8 +45,8 @@ actions:
   -
     action_id: "publish_carousel"
     workflow_visible: true
-    title: "Publish Instagram image carousel"
-    description: "Publish 2 to 20 publicly accessible HTTPS JPEG images; no video. Caption maximum 2200 characters. Partial creates return container IDs and never publish an incomplete carousel."
+    title: "Publish an Instagram image carousel"
+    description: "Publish 2 to 20 public HTTPS JPEG images as one carousel with a caption of up to 2,200 characters; return status and available media ID and permalink. A failed image prevents an incomplete album from being published."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -88,8 +88,8 @@ actions:
   -
     action_id: "get_publish_status"
     workflow_visible: true
-    title: "Read Instagram publish status"
-    description: "Read container status only. Never creates or finalizes media."
+    title: "Check Instagram publication status"
+    description: "Read the status of a known publishing container for this connection. This read-only action does not create or publish content."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -120,8 +120,8 @@ actions:
   -
     action_id: "publish_container"
     workflow_visible: true
-    title: "Publish an existing Instagram container"
-    description: "Resume a host-recorded container for this connection. Check status, then finalize only FINISHED containers through the configured account. Never recreate or blindly retry an ambiguous publish."
+    title: "Resume an Instagram publication"
+    description: "Check a container already recorded for this connection and publish it only when ready. Reuse the existing container instead of creating the content again; do not blindly retry an unknown publication outcome."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -153,8 +153,8 @@ actions:
   -
     action_id: "list_posts"
     workflow_visible: true
-    title: "List Instagram posts"
-    description: "List Instagram posts using the selected Instagram Login connection and verified asset ownership."
+    title: "List Instagram account posts"
+    description: "Read one page of media from the selected professional account; return items and a cursor for the next page."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -188,8 +188,8 @@ actions:
   -
     action_id: "get_post"
     workflow_visible: true
-    title: "Get Instagram post"
-    description: "Get Instagram post using the selected Instagram Login connection and verified asset ownership."
+    title: "Get an Instagram post"
+    description: "Read a media item by ID after verifying it belongs to the selected professional account."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -218,8 +218,8 @@ actions:
   -
     action_id: "list_comments"
     workflow_visible: true
-    title: "List Instagram comments"
-    description: "List Instagram comments using the selected Instagram Login connection and verified asset ownership."
+    title: "List comments on an Instagram post"
+    description: "Read one page of comments on media owned by the selected account; return comments and the next-page cursor."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -257,8 +257,8 @@ actions:
   -
     action_id: "list_replies"
     workflow_visible: true
-    title: "List Instagram replies"
-    description: "List Instagram replies using the selected Instagram Login connection and verified asset ownership."
+    title: "List replies to an Instagram comment"
+    description: "Read one page of replies after checking that the comment belongs to media owned by the selected account."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -296,8 +296,8 @@ actions:
   -
     action_id: "reply_to_comment"
     workflow_visible: true
-    title: "Reply to Instagram comment"
-    description: "Reply to Instagram comment using the selected Instagram Login connection and verified asset ownership."
+    title: "Reply to an Instagram comment"
+    description: "Send a text reply to a comment on media owned by the selected professional account; return the reply ID."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -330,8 +330,8 @@ actions:
   -
     action_id: "verify_connection"
     workflow_visible: false
-    title: "Verify Instagram connection"
-    description: "Read-only verification."
+    title: "Verify the Instagram account connection"
+    description: "Read the configured professional account identity and check its ID without publishing content."
     required_scopes:
       - "extension:invoke"
     handler:
@@ -357,8 +357,8 @@ actions:
   -
     action_id: "ingress_event"
     workflow_visible: false
-    title: "Receive Instagram comments"
-    description: "Normalize signed comments for explicitly allowed accounts; retain the authenticated anchor connection."
+    title: "Receive new Instagram comments"
+    description: "Convert authenticated Instagram comment callbacks into new-comment workflow events for the configured accounts."
     required_scopes:
       - "extension:invoke"
     handler:
