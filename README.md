@@ -6,7 +6,7 @@ questions, and start a workflow from new root comments. Prepare captions and ima
 in earlier steps and use publishing status/recovery actions when Meta returns a
 pending result.
 
-`flowsteward.instagram` 0.1.0 is an independent `tool_provider` using Instagram Login
+`flowsteward.instagram` 0.1.1 is an independent `tool_provider` using Instagram Login
 and `graph.instagram.com`. It requires Flow Steward 0.9.18 or later with
 `extension_host_v2`, extension runtime API 1.9.0 and public SDK 0.5.0 or later.
 Application, runtime API and SDK versions describe separate contracts. Automated
@@ -109,3 +109,11 @@ runs CI and publishes the checked artifact. Create/push a release tag only after
 the agreed Core release acceptance and the publisher's final catalog review.
 Catalog registration is a separate owner-managed change; never edit generated
 catalog indexes or replace an already published version's ZIP.
+
+## Support
+
+Open the extension's **Support** page in Flow Steward to ask a question, report a
+problem or request a feature. You can also [create a GitHub issue](https://github.com/Flow-Steward/ext-social-instagram/issues/new/choose)
+or [browse existing issues](https://github.com/Flow-Steward/ext-social-instagram/issues).
+Issues are public; never include passwords, API keys, tokens, connection strings
+or customer data.
