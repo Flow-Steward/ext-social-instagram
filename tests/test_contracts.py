@@ -32,7 +32,7 @@ def test_identity_and_host_contract_match_descriptor():
     manifest = load("extension.yaml")
     descriptor = load("extension-descriptor.yaml")
     assert manifest["extension_id"] == descriptor["extension_id"] == "flowsteward.instagram"
-    assert manifest["version"] == descriptor["release_version"] == "0.1.0"
+    assert manifest["version"] == descriptor["release_version"] == "0.1.1"
     assert manifest["kind"] == "tool_provider"
     assert (
         manifest["runtime"]["contract_version"]
@@ -180,6 +180,7 @@ def test_manual_webhook_setup_uses_selected_account_without_blocking_first_conne
         "pages/overview.yaml",
         "pages/connection.yaml",
         "pages/webhooks.yaml",
+        "pages/support.yaml",
     }
     connection_page = load("ui/pages/connection.yaml")
     assert connection_page["project_scoped"] is True
